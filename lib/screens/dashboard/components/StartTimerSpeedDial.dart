@@ -13,20 +13,21 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
 import 'package:timecop/l10n.dart';
-import 'package:timecop/screens/dashboard/bloc/dashboard_bloc.dart';
+import 'package:timecop/screens/dashboard/state/dashboard_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 
-class StartTimerSpeedDial extends StatefulWidget {
+class StartTimerSpeedDial extends ConsumerStatefulWidget {
   const StartTimerSpeedDial({Key? key}) : super(key: key);
 
   @override
-  State<StartTimerSpeedDial> createState() => _StartTimerSpeedDialState();
+  ConsumerState<StartTimerSpeedDial> createState() =>
+      _StartTimerSpeedDialState();
 }
 
-class _StartTimerSpeedDialState extends State<StartTimerSpeedDial>
+class _StartTimerSpeedDialState extends ConsumerState<StartTimerSpeedDial>
     with TickerProviderStateMixin {
   late AnimationController _controller;
 
@@ -47,8 +48,6 @@ class _StartTimerSpeedDialState extends State<StartTimerSpeedDial>
 
   @override
   Widget build(BuildContext context) {
-    final bloc = BlocProvider.of<DashboardBloc>(context);
-
     // adapted from https://stackoverflow.com/a/46480722
     return Column(mainAxisSize: MainAxisSize.min, children: <Widget>[
       Container(
@@ -66,11 +65,7 @@ class _StartTimerSpeedDialState extends State<StartTimerSpeedDial>
             mini: true,
             onPressed: () {
               _controller.reverse();
-              final timers = BlocProvider.of<TimersBloc>(context);
-              timers.add(CreateTimer(
-                  description: bloc.state.newDescription,
-                  project: bloc.state.newProject));
-              bloc.add(const TimerWasStartedEvent());
+              ref.read(dashboardProvider.notifier).startTimer();
             },
             child: const Stack(
               // shenanigans to properly centre the icon (font awesome glyphs are variable
@@ -104,8 +99,7 @@ class _StartTimerSpeedDialState extends State<StartTimerSpeedDial>
             foregroundColor: Colors.white,
             onPressed: () {
               _controller.reverse();
-              final timers = BlocProvider.of<TimersBloc>(context);
-              timers.add(const StopAllTimers());
+              ref.read(timersProvider.notifier).stopAllTimers();
             },
             child: const Stack(
               // shenanigans to properly centre the icon (font awesome glyphs are variable

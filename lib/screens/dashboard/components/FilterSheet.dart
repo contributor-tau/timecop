@@ -13,60 +13,54 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/components/DateRangeTile.dart';
 import 'package:timecop/components/ProjectTile.dart';
-import 'package:timecop/screens/dashboard/bloc/dashboard_bloc.dart';
+import 'package:timecop/screens/dashboard/state/dashboard_notifier.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class FilterSheet extends StatelessWidget {
-  final DashboardBloc dashboardBloc;
-  const FilterSheet({Key? key, required this.dashboardBloc}) : super(key: key);
+class FilterSheet extends ConsumerWidget {
+  const FilterSheet({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projectsState = ref.watch(projectsProvider);
+    final state = ref.watch(dashboardProvider);
+    final dashboard = ref.read(dashboardProvider.notifier);
 
-    return BlocBuilder<DashboardBloc, DashboardState>(
-      bloc: dashboardBloc,
-      builder: (BuildContext context, DashboardState state) {
-        return ListView(
-          shrinkWrap: true,
-          children: <Widget>[
-            DateRangeTile(
-              startDate: state.filterStart,
-              endDate: state.filterEnd,
-              onStartChosen: (dt) {
-                dashboardBloc.add(FilterStartChangedEvent(dt));
-              },
-              onEndChosen: (dt) {
-                dashboardBloc.add(FilterEndChangedEvent(dt));
-              },
-            ),
-            ProjectTile(
-              projects: projectsBloc.state.projects.where((p) => !p.archived),
-              isEnabled: (project) =>
-                  !state.hiddenProjects.any((p) => p == project?.id),
-              onToggled: (project) {
-                List<int?> hiddenProjects =
-                    state.hiddenProjects.map((p) => p).toList();
-                if (state.hiddenProjects.any((p) => p == project?.id)) {
-                  hiddenProjects.removeWhere((p) => p == project?.id);
-                } else {
-                  hiddenProjects.add(project?.id);
-                }
-                dashboardBloc.add(FilterProjectsChangedEvent(hiddenProjects));
-              },
-              onNoneSelected: () => dashboardBloc.add(
-                  FilterProjectsChangedEvent(<int?>[null]
-                      .followedBy(projectsBloc.state.projects.map((p) => p.id))
-                      .toList())),
-              onAllSelected: () =>
-                  dashboardBloc.add(const FilterProjectsChangedEvent(<int>[])),
-            ),
-          ],
-        );
-      },
+    return ListView(
+      shrinkWrap: true,
+      children: <Widget>[
+        DateRangeTile(
+          startDate: state.filterStart,
+          endDate: state.filterEnd,
+          onStartChosen: (dt) {
+            dashboard.setFilterStart(dt);
+          },
+          onEndChosen: (dt) {
+            dashboard.setFilterEnd(dt);
+          },
+        ),
+        ProjectTile(
+          projects: projectsState.projects.where((p) => !p.archived),
+          isEnabled: (project) =>
+              !state.hiddenProjects.any((p) => p == project?.id),
+          onToggled: (project) {
+            List<int?> hiddenProjects =
+                state.hiddenProjects.map((p) => p).toList();
+            if (state.hiddenProjects.any((p) => p == project?.id)) {
+              hiddenProjects.removeWhere((p) => p == project?.id);
+            } else {
+              hiddenProjects.add(project?.id);
+            }
+            dashboard.setHiddenProjects(hiddenProjects);
+          },
+          onNoneSelected: () => dashboard.setHiddenProjects(<int?>[null]
+              .followedBy(projectsState.projects.map((p) => p.id))
+              .toList()),
+          onAllSelected: () => dashboard.setHiddenProjects(const <int>[]),
+        ),
+      ],
     );
   }
 }

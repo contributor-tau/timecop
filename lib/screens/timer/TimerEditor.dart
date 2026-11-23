@@ -16,34 +16,34 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart'
     as dt;
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
 import 'package:timecop/components/ProjectColour.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/models/clone_time.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:timecop/themes.dart';
 
 enum _DateTimeMenuItems { now }
 
-class TimerEditor extends StatefulWidget {
+class TimerEditor extends ConsumerStatefulWidget {
   final TimerEntry timer;
   const TimerEditor({Key? key, required this.timer}) : super(key: key);
 
   @override
-  State<TimerEditor> createState() => _TimerEditorState();
+  ConsumerState<TimerEditor> createState() => _TimerEditorState();
 }
 
-class _TimerEditorState extends State<TimerEditor> {
+class _TimerEditorState extends ConsumerState<TimerEditor> {
   TextEditingController? _descriptionController;
   TextEditingController? _notesController;
   String? _notes;
@@ -60,20 +60,17 @@ class _TimerEditorState extends State<TimerEditor> {
   late Timer _updateTimer;
   late StreamController<DateTime> _updateTimerStreamController;
 
-  late ProjectsBloc _projectsBloc;
-
   @override
   void initState() {
     super.initState();
-    _projectsBloc = BlocProvider.of<ProjectsBloc>(context);
     _notes = widget.timer.notes ?? "";
     _descriptionController =
         TextEditingController(text: widget.timer.description);
     _notesController = TextEditingController(text: _notes);
     _startTime = widget.timer.startTime;
     _endTime = widget.timer.endTime;
-    _project = BlocProvider.of<ProjectsBloc>(context)
-        .getProjectByID(widget.timer.projectID);
+    _project =
+        ref.read(projectsProvider).getProjectByID(widget.timer.projectID);
     _descriptionFocus = FocusNode();
     _updateTimerStreamController = StreamController();
     _updateTimer = Timer.periodic(const Duration(seconds: 1),
@@ -102,8 +99,10 @@ class _TimerEditorState extends State<TimerEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    final timers = BlocProvider.of<TimersBloc>(context);
+    final autocompleteDescription = ref
+        .watch(settingsProvider.select((s) => s.autocompleteDescription));
+    final projectsState = ref.watch(projectsProvider);
+    final timersNotifier = ref.read(timersProvider.notifier);
     final dateFormat = DateFormat.yMMMEd().add_jm();
     final theme = Theme.of(context);
 
@@ -114,7 +113,6 @@ class _TimerEditorState extends State<TimerEditor> {
           IconButton(
               tooltip: L10N.of(context).tr.delete,
               onPressed: () async {
-                final timersBloc = BlocProvider.of<TimersBloc>(context);
                 final bool delete = await (showDialog<bool>(
                         context: context,
                         builder: (BuildContext context) => AlertDialog(
@@ -136,7 +134,7 @@ class _TimerEditorState extends State<TimerEditor> {
                             ))) ??
                     false;
                 if (delete) {
-                  timersBloc.add(DeleteTimer(widget.timer));
+                  timersNotifier.deleteTimer(widget.timer);
                   if (!context.mounted) return;
                   Navigator.of(context).pop();
                 }
@@ -151,61 +149,58 @@ class _TimerEditorState extends State<TimerEditor> {
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            BlocBuilder<ProjectsBloc, ProjectsState>(
-              builder: (BuildContext context, ProjectsState projectsState) =>
-                  Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: DropdownButton(
-                        value: (_project?.archived ?? true) ? null : _project,
-                        underline: const SizedBox(),
-                        onChanged: (Project? newProject) {
-                          setState(() {
-                            _project = newProject;
-                          });
-                        },
-                        items: <DropdownMenuItem<Project>>[
-                          DropdownMenuItem<Project>(
-                            value: null,
-                            child: Row(
-                              children: <Widget>[
-                                const ProjectColour(project: null),
-                                Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(8.0, 0, 0, 0),
-                                  child: Text(L10N.of(context).tr.noProject,
-                                      style: TextStyle(
-                                          color:
-                                              ThemeUtil.getOnBackgroundLighter(
-                                                  context))),
+            Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: DropdownButton(
+                  value: (_project?.archived ?? true) ? null : _project,
+                  underline: const SizedBox(),
+                  onChanged: (Project? newProject) {
+                    setState(() {
+                      _project = newProject;
+                    });
+                  },
+                  items: <DropdownMenuItem<Project>>[
+                    DropdownMenuItem<Project>(
+                      value: null,
+                      child: Row(
+                        children: <Widget>[
+                          const ProjectColour(project: null),
+                          Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(8.0, 0, 0, 0),
+                            child: Text(L10N.of(context).tr.noProject,
+                                style: TextStyle(
+                                    color:
+                                        ThemeUtil.getOnBackgroundLighter(
+                                            context))),
+                          ),
+                        ],
+                      ),
+                    )
+                  ]
+                      .followedBy(projectsState.projects
+                          .where((p) => !p.archived)
+                          .map((Project project) =>
+                              DropdownMenuItem<Project>(
+                                value: project,
+                                child: Row(
+                                  children: <Widget>[
+                                    ProjectColour(
+                                      project: project,
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                          8.0, 0, 0, 0),
+                                      child: Text(project.name),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          )
-                        ]
-                            .followedBy(projectsState.projects
-                                .where((p) => !p.archived)
-                                .map((Project project) =>
-                                    DropdownMenuItem<Project>(
-                                      value: project,
-                                      child: Row(
-                                        children: <Widget>[
-                                          ProjectColour(
-                                            project: project,
-                                          ),
-                                          Padding(
-                                            padding: const EdgeInsets.fromLTRB(
-                                                8.0, 0, 0, 0),
-                                            child: Text(project.name),
-                                          ),
-                                        ],
-                                      ),
-                                    )))
-                            .toList(),
-                      )),
-            ),
+                              )))
+                      .toList(),
+                )),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: settingsBloc.state.autocompleteDescription
+              child: autocompleteDescription
                   ? TypeAheadField<String?>(
                       direction: AxisDirection.down,
                       textFieldConfiguration: TextFieldConfiguration(
@@ -226,9 +221,12 @@ class _TimerEditorState extends State<TimerEditor> {
                       suggestionsCallback: (pattern) async {
                         if (pattern.length < 2) return [];
 
-                        List<String?> descriptions = timers.state.timers
+                        final projects = ref.read(projectsProvider);
+                        List<String?> descriptions = ref
+                            .read(timersProvider)
+                            .timers
                             .where((timer) => timer.description != null)
-                            .where((timer) => !(_projectsBloc
+                            .where((timer) => !(projects
                                     .getProjectByID(timer.projectID)
                                     ?.archived ==
                                 true))
@@ -451,7 +449,7 @@ class _TimerEditorState extends State<TimerEditor> {
             notes: _notes!.isEmpty ? null : _notes,
           );
 
-          timers.add(EditTimer(timer));
+          timersNotifier.editTimer(timer);
           Navigator.of(context).pop();
         },
       ),

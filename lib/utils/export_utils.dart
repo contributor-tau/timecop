@@ -17,15 +17,15 @@ import 'dart:collection';
 import 'package:csv/csv.dart';
 import 'package:flutter/material.dart' as mat;
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:intl/intl.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/settings/bloc.dart';
-import 'package:timecop/blocs/timers/timers_bloc.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/project_description_pair.dart';
 import 'package:timecop/models/timer_entry.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart';
 
@@ -35,11 +35,12 @@ class ExportUtils {
   //TODO add percentage of total as a possible column
   static List<TimerEntry> _getFilteredTimers(mat.BuildContext context,
       DateTime? startDate, DateTime? endDate, List<Project?> selectedProjects) {
-    final timers = BlocProvider.of<TimersBloc>(context);
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    final projects = BlocProvider.of<ProjectsBloc>(context);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final timers = container.read(timersProvider);
+    final settings = container.read(settingsProvider);
+    final projects = container.read(projectsProvider);
 
-    List<TimerEntry> filteredTimers = timers.state.timers
+    List<TimerEntry> filteredTimers = timers.timers
         .where((t) => t.endTime != null)
         .where((t) => selectedProjects.any((p) => p?.id == t.projectID))
         .where((t) => startDate == null ? true : t.startTime.isAfter(startDate))
@@ -48,10 +49,9 @@ class ExportUtils {
         .toList();
     filteredTimers.sort((a, b) => a.startTime.compareTo(b.startTime));
     // group similar timers if that's what you're in to
-    if (settingsBloc.state.exportGroupTimers &&
-        !(settingsBloc.state.exportIncludeStartTime ||
-            settingsBloc.state.exportIncludeEndTime)) {
-      filteredTimers = timers.state.timers
+    if (settings.exportGroupTimers &&
+        !(settings.exportIncludeStartTime || settings.exportIncludeEndTime)) {
+      filteredTimers = timers.timers
           .where((t) => t.endTime != null)
           .where((t) => selectedProjects.any((p) => p?.id == t.projectID))
           .where(
@@ -108,60 +108,61 @@ class ExportUtils {
       List<TimerEntry> filteredTimers,
       _DurationFormat durationFormat,
       bool compactStartEndTimes) {
-    final projects = BlocProvider.of<ProjectsBloc>(context);
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
+    final container = ProviderScope.containerOf(context, listen: false);
+    final projects = container.read(projectsProvider);
+    final settings = container.read(settingsProvider);
 
     final localizations = L10N.of(context);
 
     List<String> headers = [];
-    if (settingsBloc.state.exportIncludeDate) {
+    if (settings.exportIncludeDate) {
       headers.add(localizations.tr.date);
     }
-    if (settingsBloc.state.exportIncludeProject) {
+    if (settings.exportIncludeProject) {
       headers.add(localizations.tr.project);
     }
-    if (settingsBloc.state.exportIncludeDescription) {
+    if (settings.exportIncludeDescription) {
       headers.add(localizations.tr.description);
     }
-    if (settingsBloc.state.exportIncludeProjectDescription) {
+    if (settings.exportIncludeProjectDescription) {
       headers.add(localizations.tr.combinedProjectDescription);
     }
-    if (settingsBloc.state.exportIncludeStartTime) {
+    if (settings.exportIncludeStartTime) {
       headers.add(localizations.tr.startTime);
     }
-    if (settingsBloc.state.exportIncludeEndTime) {
+    if (settings.exportIncludeEndTime) {
       headers.add(localizations.tr.endTime);
     }
-    if (settingsBloc.state.exportIncludeDurationHours) {
+    if (settings.exportIncludeDurationHours) {
       headers.add(localizations.tr.timeH);
     }
-    if (settingsBloc.state.exportIncludeNotes) {
+    if (settings.exportIncludeNotes) {
       headers.add(localizations.tr.notes);
     }
 
     return <List<String>>[headers].followedBy(filteredTimers.map((timer) {
       List<String> row = [];
-      if (settingsBloc.state.exportIncludeDate) {
+      if (settings.exportIncludeDate) {
         row.add(DateFormat.yMd().format(timer.startTime));
       }
-      if (settingsBloc.state.exportIncludeProject) {
+      if (settings.exportIncludeProject) {
         row.add(projects.getProjectByID(timer.projectID)?.name ?? "");
       }
-      if (settingsBloc.state.exportIncludeDescription) {
+      if (settings.exportIncludeDescription) {
         row.add(timer.description ?? "");
       }
-      if (settingsBloc.state.exportIncludeProjectDescription) {
+      if (settings.exportIncludeProjectDescription) {
         row.add(
             "${projects.getProjectByID(timer.projectID)?.name ?? ""}: ${timer.description ?? ""}");
       }
-      if (settingsBloc.state.exportIncludeStartTime) {
+      if (settings.exportIncludeStartTime) {
         if (compactStartEndTimes) {
           row.add(DateFormat.jm().format(timer.startTime.toUtc()));
         } else {
           row.add(timer.startTime.toUtc().toIso8601String());
         }
       }
-      if (settingsBloc.state.exportIncludeEndTime) {
+      if (settings.exportIncludeEndTime) {
         if (compactStartEndTimes) {
           final duration = timer.endTime!.difference(timer.startTime);
           final dayIndicator = duration.inDays > 0
@@ -173,11 +174,11 @@ class ExportUtils {
           row.add(timer.endTime!.toUtc().toIso8601String());
         }
       }
-      if (settingsBloc.state.exportIncludeDurationHours) {
+      if (settings.exportIncludeDurationHours) {
         final duration = timer.endTime!.difference(timer.startTime);
         row.add(_formatDuration(duration, durationFormat));
       }
-      if (settingsBloc.state.exportIncludeNotes) {
+      if (settings.exportIncludeNotes) {
         row.add(timer.notes?.trim() ?? "");
       }
       return row;

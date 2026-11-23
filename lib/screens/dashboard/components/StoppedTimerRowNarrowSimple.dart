@@ -13,18 +13,18 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
 import 'package:timecop/components/ProjectColour.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/screens/timer/TimerEditor.dart';
 
 import 'package:timecop/utils/timer_utils.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class StoppedTimerRowNarrowSimple extends StatefulWidget {
+class StoppedTimerRowNarrowSimple extends ConsumerStatefulWidget {
   final TimerEntry timer;
   final Function(BuildContext) resumeTimer;
   final Function(BuildContext) deleteTimer;
@@ -37,12 +37,12 @@ class StoppedTimerRowNarrowSimple extends StatefulWidget {
       : super(key: key);
 
   @override
-  State<StoppedTimerRowNarrowSimple> createState() =>
+  ConsumerState<StoppedTimerRowNarrowSimple> createState() =>
       _StoppedTimerRowNarrowSimpleState();
 }
 
 class _StoppedTimerRowNarrowSimpleState
-    extends State<StoppedTimerRowNarrowSimple> {
+    extends ConsumerState<StoppedTimerRowNarrowSimple> {
   bool _hovering = false;
 
   @override
@@ -83,8 +83,8 @@ class _StoppedTimerRowNarrowSimpleState
           child: ListTile(
               key: Key("stoppedTimer-${widget.timer.id}"),
               leading: ProjectColour(
-                  project: BlocProvider.of<ProjectsBloc>(context)
-                      .getProjectByID(widget.timer.projectID)),
+                  project: ref.watch(projectsProvider.select(
+                      (s) => s.getProjectByID(widget.timer.projectID)))),
               title: Text(
                   TimerUtils.formatDescription(
                       context, widget.timer.description),

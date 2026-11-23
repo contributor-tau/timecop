@@ -13,11 +13,7 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
-import 'package:timecop/blocs/timers/timers_bloc.dart';
-import 'package:timecop/blocs/timers/timers_event.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
@@ -25,8 +21,11 @@ import 'package:timecop/utils/responsiveness_utils.dart';
 import 'package:timecop/screens/dashboard/components/StoppedTimerRowNarrowDense.dart';
 import 'package:timecop/screens/dashboard/components/StoppedTimerRowNarrowSimple.dart';
 import 'package:timecop/screens/dashboard/components/StoppedTimerRowWide.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 
-class StoppedTimerRow extends StatelessWidget {
+class StoppedTimerRow extends ConsumerWidget {
   final TimerEntry timer;
   final bool isWidescreen;
   final bool showProjectName;
@@ -39,14 +38,14 @@ class StoppedTimerRow extends StatelessWidget {
       : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return ResponsivenessUtils.isWidescreen(context)
         ? StoppedTimerRowWide(
             timer: timer,
             resumeTimer: _resumeTimer,
             deleteTimer: _deleteTimer,
             showProjectName: showProjectName)
-        : BlocProvider.of<SettingsBloc>(context).state.showProjectNames
+        : ref.watch(settingsProvider.select((s) => s.showProjectNames))
             ? StoppedTimerRowNarrowDense(
                 timer: timer,
                 resumeTimer: _resumeTimer,
@@ -57,20 +56,21 @@ class StoppedTimerRow extends StatelessWidget {
                 deleteTimer: _deleteTimer);
   }
 
-  void _resumeTimer(BuildContext context) {
-    final timersBloc = BlocProvider.of<TimersBloc>(context);
-    final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    Project? project = projectsBloc.getProjectByID(timer.projectID);
-    if (settingsBloc.state.oneTimerAtATime) {
-      timersBloc.add(const StopAllTimers());
+  void _resumeTimer(BuildContext context) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final timersNotifier = container.read(timersProvider.notifier);
+    Project? project =
+        container.read(projectsProvider).getProjectByID(timer.projectID);
+    if (container.read(settingsProvider).oneTimerAtATime) {
+      await timersNotifier.stopAllTimers();
     }
-    timersBloc
-        .add(CreateTimer(description: timer.description, project: project));
+    await timersNotifier.createTimer(
+        description: timer.description, project: project);
   }
 
   void _deleteTimer(BuildContext context) async {
-    final timersBloc = BlocProvider.of<TimersBloc>(context);
+    final timersNotifier = ProviderScope.containerOf(context, listen: false)
+        .read(timersProvider.notifier);
     final bool delete = await (showDialog<bool>(
             context: context,
             builder: (BuildContext context) => AlertDialog(
@@ -89,7 +89,7 @@ class StoppedTimerRow extends StatelessWidget {
                 ))) ??
         false;
     if (delete) {
-      timersBloc.add(DeleteTimer(timer));
+      await timersNotifier.deleteTimer(timer);
     }
   }
 }

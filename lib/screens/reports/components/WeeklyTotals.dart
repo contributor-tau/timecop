@@ -18,19 +18,19 @@ import 'dart:math';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/models/start_of_week.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:timecop/themes.dart';
 
 import 'Legend.dart';
 
-class WeeklyTotals extends StatefulWidget {
+class WeeklyTotals extends ConsumerStatefulWidget {
   final DateTime? startDate;
   final DateTime? endDate;
   final List<Project?> selectedProjects;
@@ -42,19 +42,20 @@ class WeeklyTotals extends StatefulWidget {
       : super(key: key);
 
   @override
-  State<WeeklyTotals> createState() => _WeeklyTotalsState();
+  ConsumerState<WeeklyTotals> createState() => _WeeklyTotalsState();
 }
 
-class _WeeklyTotalsState extends State<WeeklyTotals> {
+class _WeeklyTotalsState extends ConsumerState<WeeklyTotals> {
   static LinkedHashMap<int?, LinkedHashMap<int, double>> calculateData(
       BuildContext context,
       DateTime? startDate,
       DateTime? endDate,
       List<Project?> selectedProjects) {
-    final timers = BlocProvider.of<TimersBloc>(context);
+    final timers =
+        ProviderScope.containerOf(context, listen: false).read(timersProvider);
 
     DateTime? firstDate = startDate;
-    firstDate ??= timers.state.timers.map((timer) => timer.startTime).fold(
+    firstDate ??= timers.timers.map((timer) => timer.startTime).fold(
         DateTime.now(),
         ((DateTime? prev, DateTime cur) =>
             prev?.isBefore(cur) ?? false ? prev : cur));
@@ -62,7 +63,7 @@ class _WeeklyTotalsState extends State<WeeklyTotals> {
 
     LinkedHashMap<int?, LinkedHashMap<int, double>> projectWeeklyHours =
         LinkedHashMap();
-    for (TimerEntry timer in timers.state.timers
+    for (TimerEntry timer in timers.timers
         .where((timer) => timer.endTime != null)
         .where((timer) => selectedProjects.any((p) => p?.id == timer.projectID))
         .where((timer) =>
@@ -85,15 +86,15 @@ class _WeeklyTotalsState extends State<WeeklyTotals> {
 
   @override
   Widget build(BuildContext context) {
-    final projects = BlocProvider.of<ProjectsBloc>(context);
+    final projects = ref.watch(projectsProvider);
     final dateFormat = DateFormat.MMMd();
 
     final theme = Theme.of(context);
 
     DateTime? firstDate = widget.startDate;
     if (firstDate == null) {
-      final timers = BlocProvider.of<TimersBloc>(context);
-      firstDate = timers.state.timers.map((timer) => timer.startTime).fold(
+      final timers = ref.watch(timersProvider.select((s) => s.timers));
+      firstDate = timers.map((timer) => timer.startTime).fold(
           DateTime.now(),
           ((DateTime? prev, DateTime cur) =>
               prev?.isBefore(cur) ?? false ? prev : cur));
@@ -178,7 +179,7 @@ class _WeeklyTotalsState extends State<WeeklyTotals> {
                             }),
                       )),
                   lineBarsData: projectWeeklyHours.entries.map((entry) {
-                    Project? project = projects.state.projects
+                    Project? project = projects.projects
                         .firstWhereOrNull((project) => project.id == entry.key);
                     return LineChartBarData(
                         color: project?.colour ??

@@ -13,30 +13,30 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/l10n.dart';
-import 'package:timecop/screens/dashboard/bloc/dashboard_bloc.dart';
+import 'package:timecop/screens/dashboard/state/dashboard_notifier.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 
-class DescriptionField extends StatefulWidget {
+class DescriptionField extends ConsumerStatefulWidget {
   const DescriptionField({Key? key}) : super(key: key);
 
   @override
-  State<DescriptionField> createState() => _DescriptionFieldState();
+  ConsumerState<DescriptionField> createState() => _DescriptionFieldState();
 }
 
-class _DescriptionFieldState extends State<DescriptionField> {
+class _DescriptionFieldState extends ConsumerState<DescriptionField> {
   TextEditingController? _controller;
   FocusNode? _focus;
 
   @override
   void initState() {
     super.initState();
-    final bloc = BlocProvider.of<DashboardBloc>(context);
-    _controller = TextEditingController(text: bloc.state.newDescription);
+    _controller = TextEditingController(
+        text: ref.read(dashboardProvider).newDescription);
     _focus = FocusNode();
   }
 
@@ -47,96 +47,83 @@ class _DescriptionFieldState extends State<DescriptionField> {
     super.dispose();
   }
 
+  void _startTimer(String description) {
+    _focus!.unfocus();
+    final dashboard = ref.read(dashboardProvider.notifier);
+    dashboard.setDescription(description);
+    dashboard.startTimer(
+        stopRunningTimers: ref.read(settingsProvider).oneTimerAtATime);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bloc = BlocProvider.of<DashboardBloc>(context);
-    final timers = BlocProvider.of<TimersBloc>(context);
-    final settings = BlocProvider.of<SettingsBloc>(context);
-
-    return BlocBuilder<DashboardBloc, DashboardState>(
-        builder: (BuildContext context, DashboardState state) {
-      if (state.timerWasStarted) {
-        _controller!.clear();
-        _focus!.unfocus();
-        bloc.add(const ResetEvent());
-      }
-
-      if (settings.state.autocompleteDescription) {
-        return TypeAheadField<String?>(
-          direction: AxisDirection.up,
-          textFieldConfiguration: TextFieldConfiguration(
-              focusNode: _focus,
-              controller: _controller,
-              autocorrect: true,
-              decoration: InputDecoration(
-                  hintText: L10N.of(context).tr.whatAreYouDoing),
-              onChanged: (dynamic description) =>
-                  bloc.add(DescriptionChangedEvent(description as String)),
-              onSubmitted: (dynamic description) {
-                _focus!.unfocus();
-                bloc.add(DescriptionChangedEvent(description as String));
-                final timers = BlocProvider.of<TimersBloc>(context);
-                if (settings.state.oneTimerAtATime) {
-                  timers.add(const StopAllTimers());
-                }
-                timers.add(CreateTimer(
-                    description: bloc.state.newDescription,
-                    project: bloc.state.newProject));
-                bloc.add(const TimerWasStartedEvent());
-              }),
-          itemBuilder: (BuildContext context, String? desc) =>
-              ListTile(title: Text(desc!)),
-          noItemsFoundBuilder: (context) => ListTile(
-              title: Text(L10N.of(context).tr.noItemsFound), enabled: false),
-          onSuggestionSelected: (String? description) {
-            _controller!.text = description!;
-            bloc.add(DescriptionChangedEvent(description));
-          },
-          suggestionsCallback: (pattern) async {
-            if (pattern.length < 2) return [];
-
-            final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
-            final descriptions = timers.state.timers
-                .where((timer) => timer.description != null)
-                .where((timer) =>
-                    !(projectsBloc.getProjectByID(timer.projectID)?.archived ==
-                        true))
-                .where((timer) =>
-                    timer.description
-                        ?.toLowerCase()
-                        .contains(pattern.toLowerCase()) ??
-                    false)
-                .map((timer) => timer.description)
-                .toSet()
-                .toList();
-            return descriptions;
-          },
-        );
-      } else {
-        return TextField(
-          key: const Key("descriptionField"),
-          focusNode: _focus,
-          controller: _controller,
-          autocorrect: true,
-          decoration: InputDecoration(
-            hintText: L10N.of(context).tr.whatAreYouDoing,
-          ),
-          onChanged: (String description) =>
-              bloc.add(DescriptionChangedEvent(description)),
-          onSubmitted: (String description) {
-            _focus!.unfocus();
-            bloc.add(DescriptionChangedEvent(description));
-            final timers = BlocProvider.of<TimersBloc>(context);
-            if (settings.state.oneTimerAtATime) {
-              timers.add(const StopAllTimers());
-            }
-            timers.add(CreateTimer(
-                description: bloc.state.newDescription,
-                project: bloc.state.newProject));
-            bloc.add(const TimerWasStartedEvent());
-          },
-        );
-      }
+    // clear the field whenever a timer gets started from the dashboard
+    ref.listen<int>(dashboardProvider.select((s) => s.timersStarted),
+        (previous, next) {
+      _controller!.clear();
+      _focus!.unfocus();
     });
+
+    final dashboard = ref.read(dashboardProvider.notifier);
+    final autocompleteDescription = ref
+        .watch(settingsProvider.select((s) => s.autocompleteDescription));
+
+    if (autocompleteDescription) {
+      return TypeAheadField<String?>(
+        direction: AxisDirection.up,
+        textFieldConfiguration: TextFieldConfiguration(
+            focusNode: _focus,
+            controller: _controller,
+            autocorrect: true,
+            decoration:
+                InputDecoration(hintText: L10N.of(context).tr.whatAreYouDoing),
+            onChanged: (dynamic description) =>
+                dashboard.setDescription(description as String),
+            onSubmitted: (dynamic description) =>
+                _startTimer(description as String)),
+        itemBuilder: (BuildContext context, String? desc) =>
+            ListTile(title: Text(desc!)),
+        noItemsFoundBuilder: (context) => ListTile(
+            title: Text(L10N.of(context).tr.noItemsFound), enabled: false),
+        onSuggestionSelected: (String? description) {
+          _controller!.text = description!;
+          dashboard.setDescription(description);
+        },
+        suggestionsCallback: (pattern) async {
+          if (pattern.length < 2) return [];
+
+          final projects = ref.read(projectsProvider);
+          final descriptions = ref
+              .read(timersProvider)
+              .timers
+              .where((timer) => timer.description != null)
+              .where((timer) =>
+                  !(projects.getProjectByID(timer.projectID)?.archived ==
+                      true))
+              .where((timer) =>
+                  timer.description
+                      ?.toLowerCase()
+                      .contains(pattern.toLowerCase()) ??
+                  false)
+              .map((timer) => timer.description)
+              .toSet()
+              .toList();
+          return descriptions;
+        },
+      );
+    } else {
+      return TextField(
+        key: const Key("descriptionField"),
+        focusNode: _focus,
+        controller: _controller,
+        autocorrect: true,
+        decoration: InputDecoration(
+          hintText: L10N.of(context).tr.whatAreYouDoing,
+        ),
+        onChanged: (String description) =>
+            dashboard.setDescription(description),
+        onSubmitted: _startTimer,
+      );
+    }
   }
 }

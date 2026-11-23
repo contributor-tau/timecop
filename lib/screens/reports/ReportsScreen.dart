@@ -15,10 +15,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:card_swiper/card_swiper.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
 import 'package:timecop/components/DateRangeTile.dart';
 import 'package:timecop/components/ProjectTile.dart';
 import 'package:timecop/l10n.dart';
@@ -27,15 +25,17 @@ import 'package:timecop/screens/reports/components/ProjectBreakdown.dart';
 import 'package:timecop/screens/reports/components/TimeTable.dart';
 import 'package:timecop/screens/reports/components/WeekdayAverages.dart';
 import 'package:timecop/screens/reports/components/WeeklyTotals.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
 
-class ReportsScreen extends StatefulWidget {
+class ReportsScreen extends ConsumerStatefulWidget {
   const ReportsScreen({Key? key}) : super(key: key);
 
   @override
-  State<ReportsScreen> createState() => _ReportsScreenState();
+  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends State<ReportsScreen> {
+class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   List<Project?> selectedProjects = [];
@@ -43,20 +43,19 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   void initState() {
     super.initState();
-    final projects = BlocProvider.of<ProjectsBloc>(context);
+    final projects = ref.read(projectsProvider);
     selectedProjects = <Project?>[null]
-        .followedBy(projects.state.projects
+        .followedBy(projects.projects
             .where((p) => !p.archived)
             .map((p) => Project.clone(p)))
         .toList();
 
-    final settings = BlocProvider.of<SettingsBloc>(context);
-    _startDate = settings.getFilterStartDate();
+    _startDate = ref.read(settingsProvider).getFilterStartDate();
   }
 
   @override
   Widget build(BuildContext context) {
-    final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
+    final projectsState = ref.watch(projectsProvider);
 
     return Scaffold(
         appBar: AppBar(
@@ -125,7 +124,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     setState(() => _startDate = dt),
                 onEndChosen: (DateTime? dt) => setState(() => _endDate = dt)),
             ProjectTile(
-              projects: projectsBloc.state.projects.where((p) => !p.archived),
+              projects: projectsState.projects.where((p) => !p.archived),
               isEnabled: (project) =>
                   selectedProjects.any((p) => p?.id == project?.id),
               onToggled: (project) => setState(() {
@@ -139,7 +138,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 selectedProjects.clear();
               }),
               onAllSelected: () => selectedProjects = <Project?>[null]
-                  .followedBy(projectsBloc.state.projects
+                  .followedBy(projectsState.projects
                       .where((p) => !p.archived)
                       .map((p) => Project.clone(p)))
                   .toList(),

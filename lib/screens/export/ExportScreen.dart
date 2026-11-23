@@ -16,26 +16,26 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/settings/bloc.dart';
 import 'package:timecop/components/DateRangeTile.dart';
 import 'package:timecop/components/ProjectTile.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/screens/export/components/ExportMenu.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
 import 'package:timecop/utils/export_utils.dart';
 
-class ExportScreen extends StatefulWidget {
+class ExportScreen extends ConsumerStatefulWidget {
   const ExportScreen({Key? key}) : super(key: key);
 
   @override
-  State<ExportScreen> createState() => _ExportScreenState();
+  ConsumerState<ExportScreen> createState() => _ExportScreenState();
 }
 
 class DayGroup {
@@ -45,7 +45,7 @@ class DayGroup {
   DayGroup(this.date);
 }
 
-class _ExportScreenState extends State<ExportScreen> {
+class _ExportScreenState extends ConsumerState<ExportScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
   List<Project?> selectedProjects = [];
@@ -53,21 +53,21 @@ class _ExportScreenState extends State<ExportScreen> {
   @override
   void initState() {
     super.initState();
-    final projects = BlocProvider.of<ProjectsBloc>(context);
+    final projects = ref.read(projectsProvider);
     selectedProjects = <Project?>[null]
-        .followedBy(projects.state.projects
+        .followedBy(projects.projects
             .where((p) => !p.archived)
             .map((p) => Project.clone(p)))
         .toList();
 
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    _startDate = settingsBloc.getFilterStartDate();
+    _startDate = ref.read(settingsProvider).getFilterStartDate();
   }
 
   @override
   Widget build(BuildContext context) {
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
+    final settingsState = ref.watch(settingsProvider);
+    final settingsNotifier = ref.read(settingsProvider.notifier);
+    final projectsState = ref.watch(projectsProvider);
 
     final dateFormat = DateFormat.yMMMEd();
 
@@ -87,78 +87,73 @@ class _ExportScreenState extends State<ExportScreen> {
                 onStartChosen: (DateTime? dt) =>
                     setState(() => _startDate = dt),
                 onEndChosen: (DateTime? dt) => setState(() => _endDate = dt)),
-            BlocBuilder<SettingsBloc, SettingsState>(
-              bloc: settingsBloc,
-              builder: (BuildContext context, SettingsState settingsState) =>
-                  ExpansionTile(
-                key: const Key("optionColumns"),
-                title: Text(L10N.of(context).tr.columns,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontWeight: FontWeight.w700)),
-                children: <Widget>[
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.date),
-                    value: settingsState.exportIncludeDate,
-                    onChanged: (bool value) => settingsBloc
-                        .add(SetBoolValueEvent(exportIncludeDate: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.project),
-                    value: settingsState.exportIncludeProject,
-                    onChanged: (bool value) => settingsBloc
-                        .add(SetBoolValueEvent(exportIncludeProject: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.description),
-                    value: settingsState.exportIncludeDescription,
-                    onChanged: (bool value) => settingsBloc.add(
-                        SetBoolValueEvent(exportIncludeDescription: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.combinedProjectDescription),
-                    value: settingsState.exportIncludeProjectDescription,
-                    onChanged: (bool value) => settingsBloc.add(
-                        SetBoolValueEvent(
-                            exportIncludeProjectDescription: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.startTime),
-                    value: settingsState.exportIncludeStartTime,
-                    onChanged: (bool value) => settingsBloc
-                        .add(SetBoolValueEvent(exportIncludeStartTime: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.endTime),
-                    value: settingsState.exportIncludeEndTime,
-                    onChanged: (bool value) => settingsBloc
-                        .add(SetBoolValueEvent(exportIncludeEndTime: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.timeH),
-                    value: settingsState.exportIncludeDurationHours,
-                    onChanged: (bool value) => settingsBloc.add(
-                        SetBoolValueEvent(exportIncludeDurationHours: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                  SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.notes),
-                    value: settingsState.exportIncludeNotes,
-                    onChanged: (bool value) => settingsBloc
-                        .add(SetBoolValueEvent(exportIncludeNotes: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
-                ],
-              ),
+            ExpansionTile(
+              key: const Key("optionColumns"),
+              title: Text(L10N.of(context).tr.columns,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w700)),
+              children: <Widget>[
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.date),
+                  value: settingsState.exportIncludeDate,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeDate: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.project),
+                  value: settingsState.exportIncludeProject,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeProject: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.description),
+                  value: settingsState.exportIncludeDescription,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeDescription: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.combinedProjectDescription),
+                  value: settingsState.exportIncludeProjectDescription,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeProjectDescription: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.startTime),
+                  value: settingsState.exportIncludeStartTime,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeStartTime: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.endTime),
+                  value: settingsState.exportIncludeEndTime,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeEndTime: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.timeH),
+                  value: settingsState.exportIncludeDurationHours,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeDurationHours: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.notes),
+                  value: settingsState.exportIncludeNotes,
+                  onChanged: (bool value) => settingsNotifier
+                      .setBoolValues(exportIncludeNotes: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
+                ),
+              ],
             ),
             ProjectTile(
-              projects: projectsBloc.state.projects.where((p) => !p.archived),
+              projects: projectsState.projects.where((p) => !p.archived),
               isEnabled: (project) =>
                   selectedProjects.any((p) => p?.id == project?.id),
               onToggled: (project) => setState(() {
@@ -172,7 +167,7 @@ class _ExportScreenState extends State<ExportScreen> {
                 selectedProjects.clear();
               }),
               onAllSelected: () => selectedProjects = <Project?>[null]
-                  .followedBy(projectsBloc.state.projects
+                  .followedBy(projectsState.projects
                       .where((p) => !p.archived)
                       .map((p) => Project.clone(p)))
                   .toList(),
@@ -183,17 +178,12 @@ class _ExportScreenState extends State<ExportScreen> {
                       color: Theme.of(context).colorScheme.primary,
                       fontWeight: FontWeight.w700)),
               children: <Widget>[
-                BlocBuilder<SettingsBloc, SettingsState>(
-                  bloc: settingsBloc,
-                  builder:
-                      (BuildContext context, SettingsState settingsState) =>
-                          SwitchListTile.adaptive(
-                    title: Text(L10N.of(context).tr.groupTimers),
-                    value: settingsState.exportGroupTimers,
-                    onChanged: (bool value) => settingsBloc
-                        .add(SetBoolValueEvent(exportGroupTimers: value)),
-                    activeColor: Theme.of(context).colorScheme.primary,
-                  ),
+                SwitchListTile.adaptive(
+                  title: Text(L10N.of(context).tr.groupTimers),
+                  value: settingsState.exportGroupTimers,
+                  onChanged: (bool value) => settingsNotifier.setBoolValues(
+                      exportGroupTimers: value),
+                  activeColor: Theme.of(context).colorScheme.primary,
                 )
               ],
             ),

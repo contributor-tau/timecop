@@ -17,17 +17,17 @@ import 'dart:collection';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:timecop/themes.dart';
 
 import 'Legend.dart';
 
-class ProjectBreakdown extends StatefulWidget {
+class ProjectBreakdown extends ConsumerStatefulWidget {
   final DateTime? startDate;
   final DateTime? endDate;
   final List<Project?> selectedProjects;
@@ -39,18 +39,19 @@ class ProjectBreakdown extends StatefulWidget {
       : super(key: key);
 
   @override
-  State<ProjectBreakdown> createState() => _ProjectBreakdownState();
+  ConsumerState<ProjectBreakdown> createState() => _ProjectBreakdownState();
 }
 
-class _ProjectBreakdownState extends State<ProjectBreakdown> {
+class _ProjectBreakdownState extends ConsumerState<ProjectBreakdown> {
   int? _touchedIndex = -1;
 
   static LinkedHashMap<int?, double> calculateData(BuildContext context,
       DateTime? startDate, DateTime? endDate, List<Project?> selectedProjects) {
-    final timers = BlocProvider.of<TimersBloc>(context);
+    final timers =
+        ProviderScope.containerOf(context, listen: false).read(timersProvider);
 
     LinkedHashMap<int?, double> projectHours = LinkedHashMap();
-    for (TimerEntry timer in timers.state.timers
+    for (TimerEntry timer in timers.timers
         .where((timer) => timer.endTime != null)
         .where((timer) => selectedProjects.any((p) => p?.id == timer.projectID))
         .where((timer) =>
@@ -79,7 +80,7 @@ class _ProjectBreakdownState extends State<ProjectBreakdown> {
 
   @override
   Widget build(BuildContext context) {
-    final projects = BlocProvider.of<ProjectsBloc>(context);
+    final projects = ref.watch(projectsProvider);
 
     LinkedHashMap<int?, double> projectHours = calculateData(
         context, widget.startDate, widget.endDate, widget.selectedProjects);
@@ -117,7 +118,7 @@ class _ProjectBreakdownState extends State<ProjectBreakdown> {
                     sections: List.generate(projectHours.length, (int index) {
                       MapEntry<int?, double> entry =
                           projectHours.entries.elementAt(index);
-                      Project? project = projects.state.projects
+                      Project? project = projects.projects
                           .firstWhereOrNull(
                               (project) => project.id == entry.key);
                       return PieChartSectionData(

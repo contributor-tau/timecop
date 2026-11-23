@@ -12,11 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-part of 'theme_bloc.dart';
+import 'package:equatable/equatable.dart';
+import 'package:timecop/models/project.dart';
 
-class ThemeState extends Equatable {
-  final ThemeType? theme;
-  const ThemeState(this.theme);
+class ProjectsState extends Equatable {
+  final List<Project> projects;
+
+  const ProjectsState(this.projects);
+
+  static ProjectsState initial() {
+    return const ProjectsState([]);
+  }
+
+  ProjectsState.clone(ProjectsState state) : this(state.projects);
+
+  Project? getProjectByID(int? id) {
+    if (id == null) return null;
+    for (Project p in projects) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
   @override
-  List<Object?> get props => [theme];
+  List<Object> get props => [projects];
+  @override
+  bool get stringify => true;
 }

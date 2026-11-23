@@ -13,16 +13,16 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/screens/dashboard/components/ProjectTag.dart';
 import 'package:timecop/screens/dashboard/components/StoppedTimerRow.dart';
 import 'package:timecop/screens/dashboard/components/TimerDenseTrailing.dart';
 
 import 'package:timecop/utils/timer_utils.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class GroupedStoppedTimersRowNarrowDense extends StatefulWidget {
+class GroupedStoppedTimersRowNarrowDense extends ConsumerStatefulWidget {
   final List<TimerEntry> timers;
   final Function(BuildContext) resumeTimer;
   final Duration totalDuration;
@@ -36,12 +36,12 @@ class GroupedStoppedTimersRowNarrowDense extends StatefulWidget {
         super(key: key);
 
   @override
-  State<GroupedStoppedTimersRowNarrowDense> createState() =>
+  ConsumerState<GroupedStoppedTimersRowNarrowDense> createState() =>
       _GroupedStoppedTimersRowNarrowDenseState();
 }
 
 class _GroupedStoppedTimersRowNarrowDenseState
-    extends State<GroupedStoppedTimersRowNarrowDense>
+    extends ConsumerState<GroupedStoppedTimersRowNarrowDense>
     with SingleTickerProviderStateMixin {
   static final Animatable<double> _easeInTween =
       CurveTween(curve: Curves.easeIn);
@@ -64,8 +64,8 @@ class _GroupedStoppedTimersRowNarrowDenseState
 
   @override
   Widget build(BuildContext context) {
-    final project = BlocProvider.of<ProjectsBloc>(context)
-        .getProjectByID(widget.timers[0].projectID);
+    final project = ref.watch(projectsProvider
+        .select((s) => s.getProjectByID(widget.timers[0].projectID)));
     final directionality = Directionality.of(context);
     final tilePadding = Theme.of(context)
         .expansionTileTheme

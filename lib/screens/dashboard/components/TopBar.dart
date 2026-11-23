@@ -13,25 +13,25 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timecop/l10n.dart';
-import 'package:timecop/screens/dashboard/bloc/dashboard_bloc.dart';
 import 'package:timecop/screens/dashboard/components/FilterButton.dart';
 import 'package:timecop/screens/dashboard/components/PopupMenu.dart';
+import 'package:timecop/screens/dashboard/state/dashboard_notifier.dart';
 
-class TopBar extends StatefulWidget implements PreferredSizeWidget {
+class TopBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
   const TopBar({Key? key}) : super(key: key);
 
   @override
-  State<TopBar> createState() => _TopBarState();
+  ConsumerState<TopBar> createState() => _TopBarState();
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
-class _TopBarState extends State<TopBar> {
+class _TopBarState extends ConsumerState<TopBar> {
   late bool _searching;
 
   final _searchFormKey = GlobalKey<FormState>();
@@ -55,14 +55,11 @@ class _TopBarState extends State<TopBar> {
 
   void cancelSearch() {
     setState(() => _searching = false);
-    final bloc = BlocProvider.of<DashboardBloc>(context);
-    bloc.add(const SearchChangedEvent(null));
+    ref.read(dashboardProvider.notifier).setSearch(null);
   }
 
   @override
   Widget build(BuildContext context) {
-    final bloc = BlocProvider.of<DashboardBloc>(context);
-
     return AppBar(
         leading: _searching
             ? IconButton(
@@ -98,7 +95,7 @@ class _TopBarState extends State<TopBar> {
                   icon: const Icon(FontAwesomeIcons.magnifyingGlass),
                   onPressed: () {
                     _searchController.text = "";
-                    bloc.add(const SearchChangedEvent(""));
+                    ref.read(dashboardProvider.notifier).setSearch("");
                     setState(() => _searching = true);
                     _searchFocusNode.requestFocus();
                   },
@@ -109,7 +106,7 @@ class _TopBarState extends State<TopBar> {
   }
 }
 
-class _SearchBar extends StatelessWidget {
+class _SearchBar extends ConsumerWidget {
   final Function() cancelSearch;
   final GlobalKey<FormState> searchFormKey;
   final TextEditingController searchController;
@@ -122,9 +119,7 @@ class _SearchBar extends StatelessWidget {
       required this.searchFocusNode});
 
   @override
-  Widget build(BuildContext context) {
-    final bloc = BlocProvider.of<DashboardBloc>(context);
-
+  Widget build(BuildContext context, WidgetRef ref) {
     return Form(
         key: searchFormKey,
         child: TextFormField(
@@ -136,7 +131,7 @@ class _SearchBar extends StatelessWidget {
               .bodyLarge
               ?.copyWith(color: Theme.of(context).appBarTheme.foregroundColor),
           onChanged: (search) {
-            bloc.add(SearchChangedEvent(search));
+            ref.read(dashboardProvider.notifier).setSearch(search);
           },
           decoration: InputDecoration(
               prefixIcon: Icon(FontAwesomeIcons.magnifyingGlass,

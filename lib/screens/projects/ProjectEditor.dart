@@ -13,21 +13,21 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_material_color_picker/flutter_material_color_picker.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class ProjectEditor extends StatefulWidget {
+class ProjectEditor extends ConsumerStatefulWidget {
   final Project? project;
   const ProjectEditor({Key? key, required this.project}) : super(key: key);
 
   @override
-  State<ProjectEditor> createState() => _ProjectEditorState();
+  ConsumerState<ProjectEditor> createState() => _ProjectEditorState();
 }
 
-class _ProjectEditorState extends State<ProjectEditor> {
+class _ProjectEditorState extends ConsumerState<ProjectEditor> {
   TextEditingController? _nameController;
   Color? _colour;
   final _formKey = GlobalKey<FormState>();
@@ -90,15 +90,14 @@ class _ProjectEditorState extends State<ProjectEditor> {
                     bool valid = _formKey.currentState!.validate();
                     if (!valid) return;
 
-                    final ProjectsBloc projects =
-                        BlocProvider.of<ProjectsBloc>(context);
+                    final projects = ref.read(projectsProvider.notifier);
                     if (widget.project == null) {
-                      projects.add(CreateProject(
-                          _nameController!.text.trim(), _colour!));
+                      projects.createProject(
+                          _nameController!.text.trim(), _colour!);
                     } else {
                       Project p = Project.clone(widget.project!,
                           name: _nameController!.text.trim(), colour: _colour);
-                      projects.add(EditProject(p));
+                      projects.editProject(p);
                     }
                     Navigator.of(context).pop();
                   },
