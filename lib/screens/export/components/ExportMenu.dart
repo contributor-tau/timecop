@@ -21,24 +21,22 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/settings/bloc.dart';
-import 'package:timecop/blocs/timers/timers_bloc.dart';
 import 'package:timecop/data_providers/data/database_provider.dart';
 import 'package:timecop/l10n.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
 
 enum ExportMenuItem {
   import,
   export,
 }
 
-class ExportMenu extends StatelessWidget {
+class ExportMenu extends ConsumerWidget {
   final DateFormat? dateFormat;
   const ExportMenu({Key? key, this.dateFormat}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<ExportMenuItem>(
       key: const Key("exportMenuButton"),
       icon: const Icon(FontAwesomeIcons.database),
@@ -46,9 +44,7 @@ class ExportMenu extends StatelessWidget {
         final scaffoldMessenger = ScaffoldMessenger.of(context);
         final theme = Theme.of(context);
         final localization = L10N.of(context);
-        final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-        final timersBloc = BlocProvider.of<TimersBloc>(context);
-        final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
+        final settingsNotifier = ref.read(settingsProvider.notifier);
 
         switch (item) {
           case ExportMenuItem.import:
@@ -75,8 +71,7 @@ class ExportMenu extends StatelessWidget {
                   duration: const Duration(seconds: 5),
                 ));
               } else {
-                settingsBloc.add(
-                    ImportDatabaseEvent(resultPath, timersBloc, projectsBloc));
+                await settingsNotifier.importDatabase(resultPath);
 
                 scaffoldMessenger.showSnackBar(SnackBar(
                   content: Text(localization.tr.databaseImported),

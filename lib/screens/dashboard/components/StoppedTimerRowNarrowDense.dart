@@ -13,11 +13,10 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart' as intl;
-import 'package:timecop/blocs/projects/bloc.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/screens/dashboard/components/ProjectTag.dart';
 import 'package:timecop/screens/dashboard/components/TimerDenseTrailing.dart';
@@ -25,8 +24,9 @@ import 'package:timecop/screens/timer/TimerEditor.dart';
 import 'package:timecop/themes.dart';
 
 import 'package:timecop/utils/timer_utils.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class StoppedTimerRowNarrowDense extends StatelessWidget {
+class StoppedTimerRowNarrowDense extends ConsumerWidget {
   final TimerEntry timer;
   final Function(BuildContext) resumeTimer;
   final Function(BuildContext) deleteTimer;
@@ -38,15 +38,15 @@ class StoppedTimerRowNarrowDense extends StatelessWidget {
       : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     assert(timer.endTime != null);
     final directionality = Directionality.of(context);
     final tilePadding = Theme.of(context)
         .expansionTileTheme
         .tilePadding
         ?.resolve(directionality);
-    final project =
-        BlocProvider.of<ProjectsBloc>(context).getProjectByID(timer.projectID);
+    final project = ref.watch(
+        projectsProvider.select((s) => s.getProjectByID(timer.projectID)));
     final timeSpanStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
       color: ThemeUtil.getOnBackgroundLighter(context),
       fontFeatures: const [FontFeature.tabularFigures()],

@@ -1,15 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:timecop/blocs/locale/locale_bloc.dart';
-import 'package:timecop/blocs/notifications/notifications_bloc.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/settings/bloc.dart';
-import 'package:timecop/blocs/theme/theme_bloc.dart';
-import 'package:timecop/blocs/timers/timers_bloc.dart';
 import 'package:timecop/data_providers/data/data_provider.dart';
 import 'package:timecop/data_providers/data/mock_data_provider.dart';
 import 'package:timecop/data_providers/notifications/notifications_provider.dart';
@@ -18,6 +12,7 @@ import 'package:timecop/data_providers/settings/settings_provider.dart';
 import 'package:timecop/main.dart' as app;
 import 'package:timecop/screens/dashboard/components/RunningTimerRow.dart';
 import 'package:timecop/screens/dashboard/components/StoppedTimerRow.dart';
+import 'package:timecop/state/dependencies.dart';
 
 bool convertedFlutterToSurfaceImage = false;
 
@@ -47,26 +42,11 @@ void main() {
       NotificationsProvider notificationsProvider =
           await NotificationsProvider.load();
 
-      await tester.pumpWidget(MultiBlocProvider(providers: [
-        BlocProvider<ThemeBloc>(
-          create: (_) => ThemeBloc(settings),
-        ),
-        BlocProvider<LocaleBloc>(
-          create: (_) => LocaleBloc(settings),
-        ),
-        BlocProvider<SettingsBloc>(
-          create: (_) => SettingsBloc(settings, data),
-        ),
-        BlocProvider<TimersBloc>(
-          create: (_) => TimersBloc(data, settings),
-        ),
-        BlocProvider<ProjectsBloc>(
-          create: (_) => ProjectsBloc(data),
-        ),
-        BlocProvider<NotificationsBloc>(
-          create: (_) => NotificationsBloc(notificationsProvider),
-        ),
-      ], child: app.TimeCopApp(settings: settings)));
+      await tester.pumpWidget(ProviderScope(overrides: [
+        settingsRepositoryProvider.overrideWithValue(settings),
+        dataRepositoryProvider.overrideWithValue(data),
+        notificationsServiceProvider.overrideWithValue(notificationsProvider),
+      ], child: const app.TimeCopApp()));
 
       await tester.pumpAndSettle();
 

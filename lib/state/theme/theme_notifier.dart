@@ -12,21 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-part of 'theme_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timecop/models/theme_type.dart';
+import 'package:timecop/state/dependencies.dart';
 
-abstract class ThemeEvent extends Equatable {
-  const ThemeEvent();
-}
+/// The user's chosen theme.
+final themeProvider =
+    NotifierProvider<ThemeNotifier, ThemeType?>(ThemeNotifier.new);
 
-class LoadThemeEvent extends ThemeEvent {
-  const LoadThemeEvent();
+class ThemeNotifier extends Notifier<ThemeType?> {
   @override
-  List<Object> get props => [];
-}
+  ThemeType? build() => ref.watch(settingsRepositoryProvider).getTheme();
 
-class ChangeThemeEvent extends ThemeEvent {
-  final ThemeType? theme;
-  const ChangeThemeEvent(this.theme);
-  @override
-  List<Object?> get props => [theme];
+  Future<void> setTheme(ThemeType? theme) async {
+    state = theme;
+    await ref.read(settingsRepositoryProvider).setTheme(theme);
+  }
 }

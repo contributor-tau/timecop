@@ -12,12 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-part of 'dashboard_bloc.dart';
+import 'package:equatable/equatable.dart';
+import 'package:timecop/models/project.dart';
 
 class DashboardState extends Equatable {
   final String newDescription;
   final Project? newProject;
-  final bool timerWasStarted;
+  /// Incremented every time a timer is started from the dashboard, so that
+  /// widgets can react (e.g. clear the description field).
+  final int timersStarted;
   final DateTime? filterStart;
   final DateTime? filterEnd;
   final List<int?> hiddenProjects;
@@ -29,7 +32,7 @@ class DashboardState extends Equatable {
   const DashboardState(
       this.newDescription,
       this.newProject,
-      this.timerWasStarted,
+      this.timersStarted,
       this.filterStart,
       this.filterEnd,
       this.hiddenProjects,
@@ -42,12 +45,12 @@ class DashboardState extends Equatable {
     String searchString, {
     String? newDescription,
     Project? newProject,
-    bool? timerWasStarted,
+    int? timersStarted,
     List<int>? hiddenProjects,
   }) : this(
             newDescription ?? state.newDescription,
             newProject ?? state.newProject,
-            timerWasStarted ?? state.timerWasStarted,
+            timersStarted ?? state.timersStarted,
             filterStart,
             filterEnd,
             hiddenProjects ?? state.hiddenProjects,
@@ -57,7 +60,7 @@ class DashboardState extends Equatable {
   List<Object?> get props => [
         newDescription,
         newProject,
-        timerWasStarted,
+        timersStarted,
         filterStart,
         filterEnd,
         hiddenProjects,

@@ -13,17 +13,17 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart'
     as dt;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/clone_time.dart';
 import 'package:timecop/models/filter_preset.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
 
-class DateRangeTile extends StatelessWidget {
+class DateRangeTile extends ConsumerWidget {
   final DateTime? startDate;
   final DateTime? endDate;
 
@@ -41,10 +41,10 @@ class DateRangeTile extends StatelessWidget {
       this.initiallyExpanded = true});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat.yMMMEd();
-    final defaultFilterDays =
-        BlocProvider.of<SettingsBloc>(context).getDefaultFilterDays();
+    final defaultFilterDays = ref.watch(
+        settingsProvider.select((s) => s.getDefaultFilterDays()));
     return ExpansionTile(
       title: Text(L10N.of(context).tr.filter,
           style: TextStyle(

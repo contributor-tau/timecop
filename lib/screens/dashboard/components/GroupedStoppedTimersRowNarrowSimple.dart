@@ -13,18 +13,18 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
 import 'package:timecop/components/ProjectColour.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/screens/dashboard/components/StoppedTimerRow.dart';
 
 import 'package:timecop/utils/timer_utils.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class GroupedStoppedTimersRowNarrowSimple extends StatefulWidget {
+class GroupedStoppedTimersRowNarrowSimple extends ConsumerStatefulWidget {
   final List<TimerEntry> timers;
   final Function(BuildContext) resumeTimer;
   final Duration totalDuration;
@@ -38,12 +38,12 @@ class GroupedStoppedTimersRowNarrowSimple extends StatefulWidget {
         super(key: key);
 
   @override
-  State<GroupedStoppedTimersRowNarrowSimple> createState() =>
+  ConsumerState<GroupedStoppedTimersRowNarrowSimple> createState() =>
       _GroupedStoppedTimersRowNarrowSimpleState();
 }
 
 class _GroupedStoppedTimersRowNarrowSimpleState
-    extends State<GroupedStoppedTimersRowNarrowSimple>
+    extends ConsumerState<GroupedStoppedTimersRowNarrowSimple>
     with SingleTickerProviderStateMixin {
   static final Animatable<double> _easeInTween =
       CurveTween(curve: Curves.easeIn);
@@ -98,8 +98,8 @@ class _GroupedStoppedTimersRowNarrowSimpleState
               });
             },
             leading: ProjectColour(
-                project: BlocProvider.of<ProjectsBloc>(context)
-                    .getProjectByID(widget.timers[0].projectID)),
+                project: ref.watch(projectsProvider.select(
+                    (s) => s.getProjectByID(widget.timers[0].projectID)))),
             title: Text(
                 TimerUtils.formatDescription(
                     context, widget.timers[0].description),

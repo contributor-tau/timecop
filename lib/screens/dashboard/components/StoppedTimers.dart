@@ -15,18 +15,18 @@
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
 import 'package:timecop/models/project_description_pair.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/utils/responsiveness_utils.dart';
-import 'package:timecop/screens/dashboard/bloc/dashboard_bloc.dart';
 import 'package:timecop/screens/dashboard/components/CollapsibleDayGrouping.dart';
 import 'package:timecop/screens/dashboard/components/FilterText.dart';
 import 'package:timecop/screens/dashboard/components/GroupedStoppedTimersRow.dart';
+import 'package:timecop/screens/dashboard/state/dashboard_notifier.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'StoppedTimerRow.dart';
 
 class _DayGrouping {
@@ -36,17 +36,17 @@ class _DayGrouping {
   _DayGrouping(this.date);
 }
 
-class _DayGroupingRows extends StatelessWidget {
+class _DayGroupingRows extends ConsumerWidget {
   final _DayGrouping dayGrouping;
 
   const _DayGroupingRows({Key? key, required this.dayGrouping})
       : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isWidescreen = ResponsivenessUtils.isWidescreen(context);
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    final showProjectName = settingsBloc.state.showProjectNames;
+    final settings = ref.watch(settingsProvider);
+    final showProjectName = settings.showProjectNames;
     final theme = Theme.of(context);
 
     final dateFormat = DateFormat.yMMMEd();
@@ -70,7 +70,7 @@ class _DayGroupingRows extends StatelessWidget {
     }
 
     Iterable<Widget> theDaysTimers = pairedEntries.values.map((timers) {
-      if (settingsBloc.state.groupTimers) {
+      if (settings.groupTimers) {
         if (timers.length > 1) {
           return <Widget>[
             GroupedStoppedTimersRow(
@@ -97,7 +97,7 @@ class _DayGroupingRows extends StatelessWidget {
       }
     }).expand((l) => l);
 
-    if (settingsBloc.state.collapseDays) {
+    if (settings.collapseDays) {
       return CollapsibleDayGrouping(
         date: dayGrouping.date,
         totalTime: runningTotal,
@@ -156,7 +156,7 @@ class _DayGroupingRows extends StatelessWidget {
   }
 }
 
-class StoppedTimers extends StatelessWidget {
+class StoppedTimers extends ConsumerWidget {
   const StoppedTimers({Key? key}) : super(key: key);
 
   static List<_DayGrouping> _groupDays(
@@ -185,75 +185,71 @@ class StoppedTimers extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<TimersBloc, TimersState>(
-      builder: (BuildContext context, TimersState timersState) {
-        return BlocBuilder<DashboardBloc, DashboardState>(
-          builder: (BuildContext context, DashboardState dashboardState) {
-            // start our list of timers
-            var timers = timersState.timers.reversed
-                .where((timer) => timer.endTime != null);
+  Widget build(BuildContext context, WidgetRef ref) {
+    // select the list itself so the once-a-second "now" ticks don't rebuild
+    final allTimers = ref.watch(timersProvider.select((s) => s.timers));
+    final dashboardState = ref.watch(dashboardProvider);
+    final projectsState = ref.watch(projectsProvider);
 
-            // filter based on filters
-            if (dashboardState.filterStart != null) {
-              timers = timers.where((timer) =>
-                  timer.startTime.isAfter(dashboardState.filterStart!));
-            }
-            if (dashboardState.filterEnd != null) {
-              timers = timers.where((timer) =>
-                  timer.startTime.isBefore(dashboardState.filterEnd!));
-            }
+    // start our list of timers
+    var timers = allTimers.reversed
+        .where((timer) => timer.endTime != null);
 
-            // filter based on selected projects
-            timers = timers.where((t) =>
-                !dashboardState.hiddenProjects.any((p) => p == t.projectID));
+    // filter based on filters
+    if (dashboardState.filterStart != null) {
+      timers = timers.where((timer) =>
+          timer.startTime.isAfter(dashboardState.filterStart!));
+    }
+    if (dashboardState.filterEnd != null) {
+      timers = timers.where((timer) =>
+          timer.startTime.isBefore(dashboardState.filterEnd!));
+    }
 
-            // filter based on archived and deleted projects
-            final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
-            timers = timers.where((t) =>
-                projectsBloc.getProjectByID(t.projectID)?.archived != true);
+    // filter based on selected projects
+    timers = timers.where((t) =>
+        !dashboardState.hiddenProjects.any((p) => p == t.projectID));
 
-            // filter based on search
-            if (dashboardState.searchString != null) {
-              timers = timers.where((timer) {
-                // allow searching using a regex if surrounded by `/` and `/`
-                if (dashboardState.searchString!.length > 2 &&
-                    dashboardState.searchString!.startsWith("/") &&
-                    dashboardState.searchString!.endsWith("/")) {
-                  return timer.description?.contains(RegExp(
-                          dashboardState.searchString!.substring(
-                              1, dashboardState.searchString!.length - 1))) ??
-                      true;
-                } else {
-                  return dashboardState.searchString == null
-                      ? true
-                      : timer.description?.toLowerCase().contains(
-                              dashboardState.searchString!.toLowerCase()) ??
-                          true;
-                }
-              });
-            }
+    // filter based on archived and deleted projects
+    timers = timers.where((t) =>
+        projectsState.getProjectByID(t.projectID)?.archived != true);
 
-            final days = timers.fold(<_DayGrouping>[], _groupDays);
+    // filter based on search
+    if (dashboardState.searchString != null) {
+      timers = timers.where((timer) {
+        // allow searching using a regex if surrounded by `/` and `/`
+        if (dashboardState.searchString!.length > 2 &&
+            dashboardState.searchString!.startsWith("/") &&
+            dashboardState.searchString!.endsWith("/")) {
+          return timer.description?.contains(RegExp(
+                  dashboardState.searchString!.substring(
+                      1, dashboardState.searchString!.length - 1))) ??
+              true;
+        } else {
+          return dashboardState.searchString == null
+              ? true
+              : timer.description?.toLowerCase().contains(
+                      dashboardState.searchString!.toLowerCase()) ??
+                  true;
+        }
+      });
+    }
 
-            final isFiltered = (dashboardState.filterStart != null ||
-                dashboardState.filterEnd != null);
+    final days = timers.fold(<_DayGrouping>[], _groupDays);
 
-            return ListView.builder(
-              itemCount: isFiltered ? days.length + 1 : days.length,
-              itemBuilder: isFiltered
-                  ? (BuildContext context, int index) => (index < days.length)
-                      ? _DayGroupingRows(dayGrouping: days[index])
-                      : FilterText(
-                          filterStart: dashboardState.filterStart,
-                          filterEnd: dashboardState.filterEnd,
-                        )
-                  : (BuildContext context, int index) =>
-                      _DayGroupingRows(dayGrouping: days[index]),
-            );
-          },
-        );
-      },
+    final isFiltered = (dashboardState.filterStart != null ||
+        dashboardState.filterEnd != null);
+
+    return ListView.builder(
+      itemCount: isFiltered ? days.length + 1 : days.length,
+      itemBuilder: isFiltered
+          ? (BuildContext context, int index) => (index < days.length)
+              ? _DayGroupingRows(dayGrouping: days[index])
+              : FilterText(
+                  filterStart: dashboardState.filterStart,
+                  filterEnd: dashboardState.filterEnd,
+                )
+          : (BuildContext context, int index) =>
+              _DayGroupingRows(dayGrouping: days[index]),
     );
   }
 }

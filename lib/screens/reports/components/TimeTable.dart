@@ -16,15 +16,15 @@ import 'dart:collection';
 
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/components/ProjectColour.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 
-class TimeTable extends StatelessWidget {
+class TimeTable extends ConsumerWidget {
   final DateTime? startDate;
   final DateTime? endDate;
   final List<Project?> selectedProjects;
@@ -36,12 +36,12 @@ class TimeTable extends StatelessWidget {
       : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final projects = BlocProvider.of<ProjectsBloc>(context);
-    final timers = BlocProvider.of<TimersBloc>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projects = ref.watch(projectsProvider);
+    final timers = ref.watch(timersProvider.select((s) => s.timers));
 
     LinkedHashMap<int?, double> projectHours = LinkedHashMap();
-    for (TimerEntry timer in timers.state.timers
+    for (TimerEntry timer in timers
         .where((timer) => timer.endTime != null)
         .where((timer) => selectedProjects.any((p) => p?.id == timer.projectID))
         .where((timer) =>
@@ -87,7 +87,7 @@ class TimeTable extends StatelessWidget {
               thickness: 2.0,
               color: Theme.of(context).textTheme.bodyMedium!.color),
         ].followedBy(projectHours.entries.map((MapEntry<int?, double> entry) {
-          Project? project = projects.state.projects
+          Project? project = projects.projects
               .firstWhereOrNull((project) => project.id == entry.key);
           return Padding(
               padding: const EdgeInsets.only(top: 4.0, bottom: 4.0),

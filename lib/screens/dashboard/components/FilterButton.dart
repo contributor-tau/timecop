@@ -13,10 +13,8 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:timecop/l10n.dart';
-import 'package:timecop/screens/dashboard/bloc/dashboard_bloc.dart';
 import 'package:timecop/screens/dashboard/components/FilterSheet.dart';
 
 class FilterButton extends StatelessWidget {
@@ -24,15 +22,12 @@ class FilterButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bloc = BlocProvider.of<DashboardBloc>(context);
     return IconButton(
       tooltip: L10N.of(context).tr.filter,
       icon: const Icon(FontAwesomeIcons.filter),
       onPressed: () => showModalBottomSheet<void>(
         context: context,
-        builder: (BuildContext context) => FilterSheet(
-          dashboardBloc: bloc,
-        ),
+        builder: (BuildContext context) => const FilterSheet(),
       ),
     );
   }

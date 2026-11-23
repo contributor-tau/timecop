@@ -139,6 +139,24 @@ class SettingsState extends Equatable {
           nagAboutMissingTimer: nagAboutMissingTimer ?? settings.nagAboutMissingTimer,
         );
 
+  /// The start of the default dashboard / export filter window, or `null` if
+  /// there is no default.
+  DateTime? getFilterStartDate() {
+    if (defaultFilterStartDateToMonday) {
+      var dayOfWeek = 1; // Monday=1, Tuesday=2...
+      DateTime date = DateTime.now();
+      return date.subtract(Duration(days: date.weekday - dayOfWeek));
+    } else if (defaultFilterDays > 0) {
+      return DateTime.now().subtract(Duration(days: defaultFilterDays));
+    } else {
+      return null;
+    }
+  }
+
+  int getDefaultFilterDays() {
+    return defaultFilterDays < 0 ? 30 : defaultFilterDays;
+  }
+
   @override
   List<Object> get props => [
         exportGroupTimers,

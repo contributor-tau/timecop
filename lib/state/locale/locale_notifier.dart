@@ -12,10 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-part of 'notifications_bloc.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timecop/state/dependencies.dart';
 
-class NotificationsState extends Equatable {
-  const NotificationsState();
+/// The user's chosen locale, or `null` to follow the system locale.
+final localeProvider =
+    NotifierProvider<LocaleNotifier, Locale?>(LocaleNotifier.new);
+
+class LocaleNotifier extends Notifier<Locale?> {
   @override
-  List<Object> get props => [];
+  Locale? build() => ref.watch(settingsRepositoryProvider).getLocale();
+
+  Future<void> setLocale(Locale? locale) async {
+    state = locale;
+    await ref.read(settingsRepositoryProvider).setLocale(locale);
+  }
 }

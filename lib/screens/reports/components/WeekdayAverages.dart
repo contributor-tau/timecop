@@ -17,19 +17,19 @@ import 'dart:collection';
 import 'package:collection/collection.dart' show IterableExtension;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/models/start_of_week.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:timecop/themes.dart';
 import 'dart:math';
 
 import 'Legend.dart';
 
-class WeekdayAverages extends StatelessWidget {
+class WeekdayAverages extends ConsumerWidget {
   final DateTime? startDate;
   final DateTime? endDate;
   final List<Project?> selectedProjects;
@@ -40,7 +40,8 @@ class WeekdayAverages extends StatelessWidget {
       DateTime? startDate,
       DateTime? endDate,
       List<Project?> selectedProjects) {
-    final timers = BlocProvider.of<TimersBloc>(context);
+    final timers =
+        ProviderScope.containerOf(context, listen: false).read(timersProvider);
 
     DateTime firstDate = DateTime.now();
     DateTime lastDate = DateTime(1970);
@@ -49,7 +50,7 @@ class WeekdayAverages extends StatelessWidget {
       daySums.putIfAbsent(i, () => LinkedHashMap<int?, double>());
     }
 
-    for (TimerEntry timer in timers.state.timers
+    for (TimerEntry timer in timers.timers
         .where((timer) => timer.endTime != null)
         .where((timer) => selectedProjects.any((p) => p?.id == timer.projectID))
         .where((timer) =>
@@ -100,8 +101,8 @@ class WeekdayAverages extends StatelessWidget {
         super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final projects = BlocProvider.of<ProjectsBloc>(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final projects = ref.watch(projectsProvider);
 
     double maxY = _daysData.values.fold(
         0.0,
@@ -222,12 +223,12 @@ class WeekdayAverages extends StatelessWidget {
   }
 
   List<BarChartRodStackItem> _buildDayStack(
-      BuildContext context, int day, ProjectsBloc projects) {
+      BuildContext context, int day, ProjectsState projects) {
     double runningY = 0;
 
     // sort the stack from largest to smallest
     List<List<dynamic>> derp = _daysData[day]!.entries.map((entry) {
-      Project? project = projects.state.projects
+      Project? project = projects.projects
           .firstWhereOrNull((project) => project.id == entry.key);
       return <dynamic>[project, entry.value];
     }).toList();

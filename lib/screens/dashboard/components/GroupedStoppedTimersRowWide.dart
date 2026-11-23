@@ -13,10 +13,9 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
 import 'package:timecop/components/ProjectColour.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/timer_entry.dart';
@@ -26,8 +25,9 @@ import 'package:timecop/screens/dashboard/components/StoppedTimerRow.dart';
 import 'package:timecop/themes.dart';
 
 import 'package:timecop/utils/timer_utils.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
 
-class GroupedStoppedTimersRowWide extends StatefulWidget {
+class GroupedStoppedTimersRowWide extends ConsumerStatefulWidget {
   final List<TimerEntry> timers;
   final Function(BuildContext) resumeTimer;
   final Duration totalDuration;
@@ -43,12 +43,12 @@ class GroupedStoppedTimersRowWide extends StatefulWidget {
         super(key: key);
 
   @override
-  State<GroupedStoppedTimersRowWide> createState() =>
+  ConsumerState<GroupedStoppedTimersRowWide> createState() =>
       _GroupedStoppedTimersRowWideState();
 }
 
 class _GroupedStoppedTimersRowWideState
-    extends State<GroupedStoppedTimersRowWide>
+    extends ConsumerState<GroupedStoppedTimersRowWide>
     with SingleTickerProviderStateMixin {
   static const _spaceWidth = 16.0;
   static final Animatable<double> _easeInTween =
@@ -79,8 +79,8 @@ class _GroupedStoppedTimersRowWideState
       color: ThemeUtil.getOnBackgroundLighter(context),
       fontFeatures: const [FontFeature.tabularFigures()],
     );
-    final project = BlocProvider.of<ProjectsBloc>(context)
-        .getProjectByID(widget.timers[0].projectID);
+    final project = ref.watch(projectsProvider
+        .select((s) => s.getProjectByID(widget.timers[0].projectID)));
     return ExpansionTile(
       onExpansionChanged: (expanded) {
         setState(() {

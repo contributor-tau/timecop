@@ -13,18 +13,18 @@
 // limitations under the License.
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:timecop/blocs/projects/bloc.dart';
-import 'package:timecop/blocs/timers/bloc.dart';
 import 'package:timecop/components/ProjectColour.dart';
 import 'package:timecop/l10n.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/screens/timer/TimerEditor.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 import 'package:timecop/utils/timer_utils.dart';
 
-class RunningTimerRow extends StatelessWidget {
+class RunningTimerRow extends ConsumerWidget {
   final TimerEntry timer;
   final DateTime now;
 
@@ -32,7 +32,7 @@ class RunningTimerRow extends StatelessWidget {
       : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return Slidable(
       startActionPane: ActionPane(
@@ -44,7 +44,7 @@ class RunningTimerRow extends StatelessWidget {
               foregroundColor: theme.colorScheme.onError,
               icon: FontAwesomeIcons.trash,
               onPressed: (_) async {
-                final timersBloc = BlocProvider.of<TimersBloc>(context);
+                final timers = ref.read(timersProvider.notifier);
                 final bool delete = await showDialog<bool>(
                         context: context,
                         builder: (BuildContext context) => AlertDialog(
@@ -66,15 +66,15 @@ class RunningTimerRow extends StatelessWidget {
                             )) ??
                     false;
                 if (delete == true) {
-                  timersBloc.add(DeleteTimer(timer));
+                  timers.deleteTimer(timer);
                 }
               },
             )
           ]),
       child: ListTile(
           leading: ProjectColour(
-              project: BlocProvider.of<ProjectsBloc>(context)
-                  .getProjectByID(timer.projectID)),
+              project: ref.watch(projectsProvider
+                  .select((s) => s.getProjectByID(timer.projectID)))),
           title: Text(TimerUtils.formatDescription(context, timer.description),
               style: TimerUtils.styleDescription(context, timer.description)),
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -86,10 +86,8 @@ class RunningTimerRow extends StatelessWidget {
             IconButton(
               tooltip: L10N.of(context).tr.stopTimer,
               icon: const Icon(FontAwesomeIcons.solidCircleStop),
-              onPressed: () {
-                final timers = BlocProvider.of<TimersBloc>(context);
-                timers.add(StopTimer(timer));
-              },
+              onPressed: () =>
+                  ref.read(timersProvider.notifier).stopTimer(timer),
             ),
           ]),
           onTap: () =>

@@ -13,19 +13,18 @@
 // limitations under the License.
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:timecop/blocs/projects/projects_bloc.dart';
-import 'package:timecop/blocs/settings/settings_bloc.dart';
-import 'package:timecop/blocs/timers/timers_bloc.dart';
-import 'package:timecop/blocs/timers/timers_event.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timecop/models/project.dart';
 import 'package:timecop/models/timer_entry.dart';
 import 'package:timecop/utils/responsiveness_utils.dart';
 import 'package:timecop/screens/dashboard/components/GroupedStoppedTimersRowNarrowDense.dart';
 import 'package:timecop/screens/dashboard/components/GroupedStoppedTimersRowNarrowSimple.dart';
 import 'package:timecop/screens/dashboard/components/GroupedStoppedTimersRowWide.dart';
+import 'package:timecop/state/projects/projects_notifier.dart';
+import 'package:timecop/state/settings/settings_notifier.dart';
+import 'package:timecop/state/timers/timers_notifier.dart';
 
-class GroupedStoppedTimersRow extends StatelessWidget {
+class GroupedStoppedTimersRow extends ConsumerWidget {
   final List<TimerEntry> timers;
   final bool isWidescreen;
   final bool showProjectName;
@@ -38,7 +37,7 @@ class GroupedStoppedTimersRow extends StatelessWidget {
       : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final totalDuration = Duration(
         seconds: timers.fold(
             0,
@@ -51,7 +50,7 @@ class GroupedStoppedTimersRow extends StatelessWidget {
             totalDuration: totalDuration,
             resumeTimer: _resumeTimer,
           )
-        : BlocProvider.of<SettingsBloc>(context).state.showProjectNames
+        : ref.watch(settingsProvider.select((s) => s.showProjectNames))
             ? GroupedStoppedTimersRowNarrowDense(
                 timers: timers,
                 totalDuration: totalDuration,
@@ -64,15 +63,15 @@ class GroupedStoppedTimersRow extends StatelessWidget {
               );
   }
 
-  void _resumeTimer(BuildContext context) {
-    final timersBloc = BlocProvider.of<TimersBloc>(context);
-    final projectsBloc = BlocProvider.of<ProjectsBloc>(context);
-    final settingsBloc = BlocProvider.of<SettingsBloc>(context);
-    Project? project = projectsBloc.getProjectByID(timers.first.projectID);
-    if (settingsBloc.state.oneTimerAtATime) {
-      timersBloc.add(const StopAllTimers());
+  void _resumeTimer(BuildContext context) async {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final timersNotifier = container.read(timersProvider.notifier);
+    Project? project =
+        container.read(projectsProvider).getProjectByID(timers.first.projectID);
+    if (container.read(settingsProvider).oneTimerAtATime) {
+      await timersNotifier.stopAllTimers();
     }
-    timersBloc.add(CreateTimer(
-        description: timers.first.description ?? "", project: project));
+    await timersNotifier.createTimer(
+        description: timers.first.description ?? "", project: project);
   }
 }
