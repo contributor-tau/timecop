@@ -1,6 +1,6 @@
 I'm happy to take bug reports and pull requests if you want to help improve _Time Cop_, but I fundamentally want to keep this app relatively small and simple. If that's not for you, there's [plenty](https://toggl.com/) of [other](https://clockify.me/) [options](https://www.workpuls.com/) [out](https://www.manictime.com/) [there](https://trackabi.com/).
 
-The app is created pretty much entirely in [Dart](https://dart.dev/) using [Flutter](https://flutter.dev/), and I tried to make heavy use of the [Bloc](https://bloclibrary.dev/#/) pattern.
+The app is created pretty much entirely in [Dart](https://dart.dev/) using [Flutter](https://flutter.dev/), and state is managed with [Riverpod](https://riverpod.dev/).
 
 Here are a few resources to get you started if this is your first Flutter project:
 
